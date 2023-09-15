@@ -135,7 +135,7 @@ class LokiEmitter:
         }
         return {"streams": [stream]}
     
-    def emit_batch(self, records: list[ Tuple[logging.LogRecord, str]]):
-        """Send log record to Loki."""
+    def emit_batch(self, records: list[Tuple[logging.LogRecord, str]]):
+        """Send log records to Loki."""
         streams = [self.build_payload(record[0], record[1])["streams"][0] for record in records]
         self._post_to_loki({"streams": streams})

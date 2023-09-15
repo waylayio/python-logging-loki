@@ -22,11 +22,7 @@ class LokiQueueHandler(QueueHandler):
         super().__init__(queue)
 
         loki_handler = LokiHandler(**kwargs)  # noqa: WPS110
-
-        if batch_interval:
-            self.handler = LokiBatchHandler(batch_interval, target=loki_handler)
-        else: 
-            self.handler = loki_handler
+        self.handler = LokiBatchHandler(batch_interval, target=loki_handler) if batch_interval else loki_handler
 
         self.listener = QueueListener(self.queue, self.handler)
         self.listener.start()
@@ -65,7 +61,7 @@ class LokiHandler(logging.Handler):
             auth: Optional tuple with username and password for basic HTTP authentication.
             headers: Optional record with headers that are send with each POST to loki.
             as_json: Flag to support sending entire JSON record instead of only the message.
-            props_to_labels: List of properties that sould be converted to loki labels.
+            props_to_labels: List of properties that should be converted to loki labels.
 
         """
         super().__init__()
@@ -110,8 +106,8 @@ class LokiBatchHandler(MemoryHandler):
                 self.target.emit_batch(self.buffer)
                 self.buffer.clear()
         finally:
+            self._last_flush_time = time.time()
             self.release()
-        self._last_flush_time = time.time()
 
     def shouldFlush(self, record: logging.LogRecord) -> bool:
         return (
