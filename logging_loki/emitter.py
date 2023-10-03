@@ -20,8 +20,6 @@ class LokiEmitter:
     """Base Loki emitter class."""
 
     success_response_code = const.success_response_code
-    level_tag = const.level_tag
-    logger_tag = const.logger_tag
     label_allowed_chars = const.label_allowed_chars
     label_replace_with = const.label_replace_with
     session_class = requests.Session
@@ -32,7 +30,9 @@ class LokiEmitter:
         headers: Optional[dict] = None, 
         auth: BasicAuth = None, 
         as_json: bool = False,
-        props_to_labels: Optional[list[str]] = None
+        props_to_labels: Optional[list[str]] = None,
+        level_tag: Optional[str] = const.level_tag,
+        logger_tag: Optional[str] = const.logger_tag
     ):
         """
         Create new Loki emitter.
@@ -53,8 +53,12 @@ class LokiEmitter:
         self.auth = auth
         #: Optional bool, send record as json?
         self.as_json = as_json
-        #: Optional list, send record as json?
+        #: Optional list, convert properties to loki labels
         self.props_to_labels = props_to_labels or []
+        #: Label name indicating logging level.
+        self.level_tag: str = level_tag
+        #: Label name indicating logger name.
+        self.logger_tag: str = logger_tag
 
         self._session: Optional[requests.Session] = None
         self._lock = threading.Lock()
@@ -102,14 +106,21 @@ class LokiEmitter:
             label = label.replace(char_from, char_to)
         return "".join(char for char in label if char in self.label_allowed_chars)
 
-    def build_tags(self, record: logging.LogRecord) -> Dict[str, Any]:
+    def build_tags(self, record: logging.LogRecord, line: str) -> Dict[str, Any]:
         """Return tags that must be send to Loki with a log record."""
         tags = dict(self.tags) if isinstance(self.tags, ConvertingDict) else self.tags
         tags = copy.deepcopy(tags)
-        tags[self.level_tag] = record.levelname.lower()
-        tags[self.logger_tag] = record.name
+        if self.level_tag:
+            tags[self.level_tag] = record.levelname.lower()
+        if self.logger_tag:
+            tags[self.logger_tag] = record.name
 
-        extra_tags = {k: getattr(record, k) for k in self.props_to_labels if getattr(record, k, None)}
+        extra_tags = {}
+        if self.props_to_labels:
+            jsonline = json.loads(line)
+            for k in self.props_to_labels:
+                if prop_value := getattr(record, k, None) or jsonline.get(k, None):
+                    extra_tags.update({k: prop_value})
         if isinstance(passed_tags := getattr(record, "tags", {}), dict):
             extra_tags = extra_tags | passed_tags
 
@@ -121,9 +132,9 @@ class LokiEmitter:
 
         return tags
 
-    def build_payload(self, record: logging.LogRecord, line) -> dict:
+    def build_payload(self, record: logging.LogRecord, line: str) -> dict:
         """Build JSON payload with a log entry."""
-        labels = self.build_tags(record)
+        labels = self.build_tags(record, line)
         ns = 1e9
         ts = str(int(time.time() * ns))
 

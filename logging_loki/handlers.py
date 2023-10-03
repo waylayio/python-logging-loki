@@ -7,6 +7,7 @@ import os
 from queue import Queue
 import time
 from typing import Optional, Union
+from logging_loki import const
 
 from logging_loki.emitter import BasicAuth, LokiEmitter
 
@@ -51,6 +52,8 @@ class LokiHandler(logging.Handler):
         auth: Optional[BasicAuth] = None,
         as_json: Optional[bool] = False,
         props_to_labels: Optional[list[str]] = None,
+        level_tag: Optional[str] = const.level_tag,
+        logger_tag: Optional[str] = const.logger_tag
     ):
         """
         Create new Loki logging handler.
@@ -62,10 +65,12 @@ class LokiHandler(logging.Handler):
             headers: Optional record with headers that are send with each POST to loki.
             as_json: Flag to support sending entire JSON record instead of only the message.
             props_to_labels: List of properties that should be converted to loki labels.
+            level_tag: Label name indicating logging level.
+            logger_tag: Label name indicating logger name.
 
         """
         super().__init__()
-        self.emitter = LokiEmitter(url, tags, headers, auth, as_json, props_to_labels)
+        self.emitter = LokiEmitter(url, tags, headers, auth, as_json, props_to_labels, level_tag, logger_tag)
 
     def handleError(self, record):  # noqa: N802
         """Close emitter and let default handler take actions on error."""
