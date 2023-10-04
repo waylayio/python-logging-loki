@@ -174,7 +174,7 @@ def test_can_build_tags_from_converting_dict(emitter_v1):
 
     logger = logging.getLogger(logger_name)
     emitter: LokiEmitter = logger.handlers[0].handler.emitter
-    emitter.build_tags(create_record())
+    emitter.build_tags(create_record(), '{}')
 
 def test_batch_records_sent_to_emitter_url(emitter_v1):
     emitter, session = emitter_v1
