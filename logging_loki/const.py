@@ -16,6 +16,9 @@ level_tag: str = "severity"
 #: Label name indicating logger name.
 logger_tag: str = "logger"
 
+#: Logger name of the logger where the logging errors should be forwarded to
+LOGLOG_LOGGER_NAME = 'waylay.loglog'
+
 #: String contains chars that can be used in label names in LogQL.
 label_allowed_chars: str = "".join((string.ascii_letters, string.digits, "_"))
 #: A list of pairs of characters to replace in the label name.
