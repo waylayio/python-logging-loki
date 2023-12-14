@@ -1,17 +1,34 @@
 # -*- coding: utf-8 -*-
 
+from contextlib import redirect_stderr, redirect_stdout
+import functools
 import logging
 from logging.handlers import MemoryHandler, QueueHandler
 from logging.handlers import QueueListener
 import os
 from queue import Queue
+import sys
 import time
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 from logging_loki import const
 
 from logging_loki.emitter import BasicAuth, LokiEmitter
 
 LOKI_MAX_BATCH_BUFFER_SIZE = int(os.environ.get('LOKI_MAX_BATCH_BUFFER_SIZE', 10))
+
+# capture original stdout and stderr
+_sys_out = sys.stdout
+_sys_err = sys.stderr
+
+_error_logger = logging.getLogger(const.LOGLOG_LOGGER_NAME)
+
+def with_original_stdout(method: Callable):
+    @functools.wraps(method)
+    def _impl(self, *method_args, **method_kwargs):
+        with redirect_stdout(_sys_out):
+            with redirect_stderr(_sys_err):
+                return method(self, *method_args, **method_kwargs)
+    return _impl
 
 class LokiQueueHandler(QueueHandler):
     """This handler automatically creates listener and `LokiHandler` to handle logs queue."""
@@ -72,27 +89,28 @@ class LokiHandler(logging.Handler):
         super().__init__()
         self.emitter = LokiEmitter(url, tags, headers, auth, as_json, props_to_labels, level_tag, logger_tag)
 
-    def handleError(self, record):  # noqa: N802
+    def handleError(self, exc: Exception):  # noqa: N802
         """Close emitter and let default handler take actions on error."""
+        _error_logger.error(exc, exc_info=True)
         self.emitter.close()
-        super().handleError(record)
 
+    @with_original_stdout
     def emit(self, record: logging.LogRecord):
         """Send log record to Loki."""
         # noinspection PyBroadException
         try:
             self.emitter(record, self.format(record))
-        except Exception:
-            self.handleError(record)
+        except Exception as exc:
+            self.handleError(exc)
 
+    @with_original_stdout
     def emit_batch(self, records: list[logging.LogRecord]):
         """Send a batch of log records to Loki."""
         # noinspection PyBroadException
         try:
             self.emitter.emit_batch([(record, self.format(record)) for record in records])
-        except Exception:
-            for record in records:
-                self.handleError(record)
+        except Exception as exc:
+            self.handleError(exc)
 
 class LokiBatchHandler(MemoryHandler):
     interval: float # The interval at which batched logs are sent in seconds

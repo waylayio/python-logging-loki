@@ -7,13 +7,26 @@ import logging
 import threading
 import time
 from logging.config import ConvertingDict
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import requests
 
 from logging_loki import const
 
 BasicAuth = Optional[Tuple[str, str]]
+
+
+def with_lock(method: Callable):
+    @functools.wraps(method)
+    def _impl(self, *method_args, **method_kwargs):
+        # Prevent "recursion" when e.g. urllib3 logs debug messages on POST
+        if not self._lock.acquire(blocking=False):
+            return
+        try:
+            return method(self, *method_args, **method_kwargs)
+        finally:
+            self._lock.release()
+    return _impl
 
 
 class LokiEmitter:
@@ -63,16 +76,11 @@ class LokiEmitter:
         self._session: Optional[requests.Session] = None
         self._lock = threading.Lock()
 
+    @with_lock
     def __call__(self, record: logging.LogRecord, line: str):
         """Send log record to Loki."""
-        # Prevent "recursion" when e.g. urllib3 logs debug messages on POST
-        if not self._lock.acquire(blocking=False):
-            return
-        try:
-            payload = self.build_payload(record, line)
-            self._post_to_loki(payload)
-        finally:
-            self._lock.release()
+        payload = self.build_payload(record, line)
+        self._post_to_loki(payload)
 
     def _post_to_loki(self, payload: dict):
         resp = self.session.post(self.url, json=payload, headers=self.headers)
@@ -146,6 +154,7 @@ class LokiEmitter:
         }
         return {"streams": [stream]}
     
+    @with_lock
     def emit_batch(self, records: list[Tuple[logging.LogRecord, str]]):
         """Send log records to Loki."""
         streams = [self.build_payload(record[0], record[1])["streams"][0] for record in records]
