@@ -70,7 +70,8 @@ class LokiHandler(logging.Handler):
         as_json: Optional[bool] = False,
         props_to_labels: Optional[list[str]] = None,
         level_tag: Optional[str] = const.level_tag,
-        logger_tag: Optional[str] = const.logger_tag
+        logger_tag: Optional[str] = const.logger_tag,
+        verify: Union[bool, str] = True
     ):
         """
         Create new Loki logging handler.
@@ -84,10 +85,11 @@ class LokiHandler(logging.Handler):
             props_to_labels: List of properties that should be converted to loki labels.
             level_tag: Label name indicating logging level.
             logger_tag: Label name indicating logger name.
+            verify: Either a boolean, in which case it controls whether we verify the server's TLS certificate, or a string, in which case it must be a path to a CA bundle to use.
 
         """
         super().__init__()
-        self.emitter = LokiEmitter(url, tags, headers, auth, as_json, props_to_labels, level_tag, logger_tag)
+        self.emitter = LokiEmitter(url, tags, headers, auth, as_json, props_to_labels, level_tag, logger_tag, verify)
 
     def handleError(self, exc: Exception):  # noqa: N802
         """Close emitter and let default handler take actions on error."""

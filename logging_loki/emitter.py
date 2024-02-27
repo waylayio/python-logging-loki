@@ -7,7 +7,7 @@ import logging
 import threading
 import time
 from logging.config import ConvertingDict
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import requests
 
@@ -45,7 +45,8 @@ class LokiEmitter:
         as_json: bool = False,
         props_to_labels: Optional[list[str]] = None,
         level_tag: Optional[str] = const.level_tag,
-        logger_tag: Optional[str] = const.logger_tag
+        logger_tag: Optional[str] = const.logger_tag,
+        verify: Union[bool, str] = True
     ):
         """
         Create new Loki emitter.
@@ -72,6 +73,8 @@ class LokiEmitter:
         self.level_tag: str = level_tag
         #: Label name indicating logger name.
         self.logger_tag: str = logger_tag
+        # verify param to be past to requests, can be a bool (to enable/disable SSL verification) or a path to a CA bundle
+        self.verify = verify
 
         self._session: Optional[requests.Session] = None
         self._lock = threading.Lock()
@@ -95,6 +98,7 @@ class LokiEmitter:
         if self._session is None:
             self._session = self.session_class()
             self._session.auth = self.auth or None
+            self._session.verify = self.verify
         return self._session
 
     def close(self):
