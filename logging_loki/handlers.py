@@ -71,7 +71,8 @@ class LokiHandler(logging.Handler):
         props_to_labels: Optional[list[str]] = None,
         level_tag: Optional[str] = const.level_tag,
         logger_tag: Optional[str] = const.logger_tag,
-        verify: Union[bool, str] = True
+        verify: Union[bool, str] = True,
+        replace_timestamp: Optional[bool] = False,
     ):
         """
         Create new Loki logging handler.
@@ -86,10 +87,10 @@ class LokiHandler(logging.Handler):
             level_tag: Label name indicating logging level.
             logger_tag: Label name indicating logger name.
             verify: Either a boolean, in which case it controls whether we verify the server's TLS certificate, or a string, in which case it must be a path to a CA bundle to use.
-
+            replace_timestamp: If enabled, the timestamp in the log line will be replaced with `time.time_ns()`. Be careful when using this option with `batching` enabled, as the logs will be sent in batches, and the timestamp will be the time of the batch, not the time of the log.
         """
         super().__init__()
-        self.emitter = LokiEmitter(url, tags, headers, auth, as_json, props_to_labels, level_tag, logger_tag, verify)
+        self.emitter = LokiEmitter(url, tags, headers, auth, as_json, props_to_labels, level_tag, logger_tag, verify, replace_timestamp=replace_timestamp)
 
     def handleError(self, exc: Exception):  # noqa: N802
         """Close emitter and let default handler take actions on error."""

@@ -46,7 +46,8 @@ class LokiEmitter:
         props_to_labels: Optional[list[str]] = None,
         level_tag: Optional[str] = const.level_tag,
         logger_tag: Optional[str] = const.logger_tag,
-        verify: Union[bool, str] = True
+        verify: Union[bool, str] = True,
+        replace_timestamp: Optional[bool] = False,
     ):
         """
         Create new Loki emitter.
@@ -75,6 +76,8 @@ class LokiEmitter:
         self.logger_tag: str = logger_tag
         # verify param to be past to requests, can be a bool (to enable/disable SSL verification) or a path to a CA bundle
         self.verify = verify
+        # Flag to control if the log timestamp should be replaced with the current time
+        self.replace_timestamp = replace_timestamp
 
         self._session: Optional[requests.Session] = None
         self._lock = threading.Lock()
@@ -147,8 +150,7 @@ class LokiEmitter:
     def build_payload(self, record: logging.LogRecord, line: str) -> dict:
         """Build JSON payload with a log entry."""
         labels = self.build_tags(record, line)
-        ns = 1e9
-        ts = str(int(time.time() * ns))
+        ts = str(time.time_ns()) if self.replace_timestamp else str(int(record.created * 1e9))
 
         line = json.dumps(record, default=lambda obj: obj.__dict__) if self.as_json else line
 
