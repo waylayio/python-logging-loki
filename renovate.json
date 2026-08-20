@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "enabledManagers": [
+    "gitlabci"
+  ],
+  "prConcurrentLimit": 100,
+  "lockFileMaintenance": {
+    "enabled": false
+  },
+  "packageRules": [
+    {
+      "description": "GitLab CI dependency updates weekly on Thursday",
+      "matchManagers": [
+        "gitlabci"
+      ],
+      "schedule": [
+        "on thursday"
+      ]
+    }
+  ]
+}
